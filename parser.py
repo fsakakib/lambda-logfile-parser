@@ -1,8 +1,10 @@
 import json
+import logging
 import boto3
 import mypy_boto3_s3 as s3
 import glob
 import gzip
+import os
 
 def extractObject(json_object, search_object):
 
@@ -22,13 +24,22 @@ def getLogs(bucket_name, root_key):
     # client = boto3.client('s3')
     logs = []
     
-    for element in client.list_objects_v2(Bucket=bucket_name)['Contents']:
-        if root_key in element['Key']:
-            if root_key != element['Key']:
-                response = client.get_object(Bucket=bucket_name,Key=element['Key'])
-                logs.append(response)
+    try:
+        logging.debug("Fetching logs")
+        for element in client.list_objects_v2(Bucket=bucket_name)['Contents']:
+            logging.debug(element)
+            if root_key in element['Key']:
+                if root_key != element['Key']:
+                    response = client.get_object(Bucket=bucket_name,Key=element['Key'])
+                    logs.append(response)
     
-    return logs
+    except s3.client.exceptions.NoSuchBucket as err:
+
+        print("The requested bucket does not exist!", err)
+    
+    finally:
+        
+        return logs
 
 def handler(event, context):
     
@@ -37,10 +48,12 @@ def handler(event, context):
 
 if __name__ == '__main__':
 
+    os.remove('logs/app.log')
+    logging.basicConfig(filename='logs/app.log',level=logging.DEBUG, format='%(levelname)s:%(message)s')
     get_object_list = []
     logs_from_s3 = []
     bucket_name = '7654-2707-2911-bucket-logs' #here is the bucket used for the trail that is configured on the object level logging
-    bucket_root_key = 'AWSLogs/765427072911/CloudTrail/eu-west-1/2020/07/10/' #this is the "path" to the date of the event inside the bucket
+    bucket_root_key = 'AWSLogs/765427072911/CloudTrail/ap-south-1/2020/07/10/' #this is the "path" to the date of the event inside the bucket
     event = 'GetObject'
 
     print("Fetching logs from:",bucket_name,bucket_root_key)
